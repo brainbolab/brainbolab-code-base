@@ -1,0 +1,160 @@
+The purpose of these sets of scripts is to aggregate time series data from
+across separate channels such that the resulting aggregated time series data
+can be used for the fused lasso changepoint/ trend analysis. In terms of
+coherence analysis, let's say you have several coherence time series files
+for each pair of brain regions for each mouse on several different dates, e.g.:
+
+data_directory
+  |
+  |__MouseM1
+  |    |
+  |    |__240401
+  |    |    |
+  |    |    |__Coherence
+  |    |         |
+  |    |         |__Acc_01xBLA_01.mat
+  |    |         |
+  |    |         |__Acc_01xBLA_02.mat
+  |    |         |
+  |    |         |__Acc_01xBLA_03.mat
+  |    |         |
+  |    |         |__Acc_02xBLA_01.mat
+  |    |         |
+  |    |         |__Acc_02xBLA_02.mat
+  |    |         |
+  |    |         |__Acc_02xBLA_03.mat
+  |    |         |
+  |    |         |__...
+  |    |         |
+  |    |         |__RPBN_03xVPM_01.mat
+  |    |         |
+  |    |         |__RPBN_03xVPM_02.mat
+  |    |         |
+  |    |         |__RPBN_03xVPM_03.mat
+  |    |
+  |    |__240414
+  |         |
+  |         |__Coherence
+  |              |
+  |              |__Acc_01xBLA_01.mat
+  |              |
+  |              |__...
+  |              |
+  |              |__Acc_03xBLA_03.mat
+  |              |
+  |              |__...
+  |              |
+  |              |__RPBN_03xVPM_03.mat
+  |
+  |__MouseM2
+       |
+       |__240401
+       |    |
+       |    |__Coherence
+       |         |
+       |         |__Acc_01xBLA_01.mat
+       |         |
+       |         |__...
+       |         |
+       |         |__Acc_04xBLA_03.mat
+       |         |
+       |         |__...
+       |         |
+       |         |__RPBN_03xVPM_04.mat
+       |
+       |__240414
+            |
+            |__Coherence
+                 |
+                 |__Acc_01xBLA_01.mat
+                 |
+                 |__...
+                 |
+                 |__Acc_04xBLA_03.mat
+                 |
+                 |__...
+                 |
+                 |__RPBN_03xVPM_04.mat
+
+The `average_coherence_parallel.m` script in the `average_coherence` directory
+will, for each pair of brain regions for each mouse for each date, compute the
+mean coherence time series' across all of the different pairs of channels files
+for that mouse/ brain region pair at provided time segments and at provided ranges
+of frequencies in one Hz increments. The results are organized into sets of
+tables and saved in mat files. E.g. if you had your coherence data as in the file
+structure shown above, after running the `average_coherence_parallel.m` script
+you would have four mat files:
+
+MouseM1_240401_mean_coherence_ts.mat
+MouseM1_240414_mean_coherence_ts.mat
+MouseM2_240401_mean_coherence_ts.mat
+MouseM2_240414_mean_coherence_ts.mat
+
+each of which would contain a MATLAB struct whose different fields would contain
+a table corresponding to a particular segment of time; an example of one of these
+tables (depending on the date and mouse) might look as follows:
+
+    mouse      date  freq_band   Hz   region_pair  Var1  Var2  ...  Var1000
+    -----      ----  ---------   --   -----------  ----  ----  ...  -------
+"MouseM1"  "240401"          1    2   "Acc_x_BLA"  0.48  0.21  ...     0.57
+"MouseM1"  "240401"          1    3   "Acc_x_BLA"  0.42  0.18  ...     0.48
+"MouseM1"  "240401"          1    4   "Acc_x_BLA"  0.41  0.15  ...     0.42
+"MouseM1"  "240401"          2    5   "Acc_x_BLA"  0.25  0.11  ...     0.31
+"MouseM1"  "240401"          2    6   "Acc_x_BLA"  0.21  0.08  ...     0.28
+"MouseM1"  "240401"          2    7   "Acc_x_BLA"  0.17  0.05  ...     0.25
+      ...       ...        ...  ...           ...   ...   ...  ...      ...
+"MouseM1"  "240401"          2    5  "RPBN_x_VPM"  0.25  0.11  ...     0.31
+"MouseM1"  "240401"          2    6  "RPBN_x_VPM"  0.21  0.08  ...     0.28
+"MouseM1"  "240401"          2    7  "RPBN_x_VPM"  0.17  0.05  ...     0.25
+"MouseM1"  "240401"          3    9  "RPBN_x_VPM"  0.05  0.01  ...     0.11
+"MouseM1"  "240401"          3   10  "RPBN_x_VPM"  0.01  0.95  ...     0.03
+"MouseM1"  "240401"          3   11  "RPBN_x_VPM"  0.37  0.42  ...     0.28
+
+Before you can perform the fused lasso changepoint analysis, you need to run
+the `concatenate_separate_coherence_ts.m` script in the `average_coherence`
+directory. This script takes the directory containing all of the separate
+'MouseXX_XXXXXX_mean_coherence_ts.mat' files (which should be in separate
+directories based on date), concatenates their coherence time series' stored
+in separate fields of the MATLAB structs in those files, computes the average
+coherence time series for each frequency band for each pair of brain regions for
+each mouse, and combines the results for all mice into one table which is saved
+as a CSV file. E.g. let's say you have the following file stucture as a result
+of running the `average_coherence_parallel.m` script:
+
+data_directory
+  |
+  |__Day1
+  |    |
+  |    |__MouseM1_240401_mean_coherence_ts.mat
+  |    |
+  |    |__MouseM2_240401_mean_coherence_ts.mat
+  |
+  |__Day2
+       |
+       |__MouseM1_240414_mean_coherence_ts.mat
+       |
+       |__MouseM2_240414_mean_coherence_ts.mat
+
+then you would run the `concatenate_separate_coherence_ts.m` script separately
+for each directory `Day1` and `Day2` and obtain files such as:
+
+Day1_<experiment_name>_coherence_fused_lasso_analysis.csv
+Day2_<experiment_name>_coherence_fused_lasso_analysis.csv
+
+each of which would contain a table that might look as follows:
+
+ mouse_id  freq_band      region_pair  Var1  Var2  ...  Var1000  ...  Var2000
+ --------  ---------      -----------  ----  ----  ...  -------  ...  -------
+"MouseM1"          1      "Acc_x_BLA"  0.26  0.51  ...     0.37  ...     0.61
+"MouseM1"          1      "Acc_x_CeA"  0.31  0.52  ...     0.48  ...     0.58
+"MouseM1"          1     "Acc_x_LPBN"  0.18  0.25  ...     0.15  ...     0.42
+"MouseM1"          1  "Acc_x_MD_thal"  0.16  0.41  ...     0.08  ...     0.35
+      ...        ...              ...   ...   ...  ...      ...  ...      ...
+"MouseM2"          3  "MD_thal_x_VPM"  0.35  0.17  ...     0.27  ...     0.35
+"MouseM2"          3      "Po_x_RPBN"  0.42  0.51  ...     0.68  ...     0.46
+"MouseM2"          3       "Po_x_VPM"  0.67  0.45  ...     0.61  ...     0.64
+"MouseM2"          3     "RPBN_x_VPM"  0.18  0.11  ...     0.33  ...     0.29
+
+Finally, for each day's combined time series table produced as output from
+running the `concatenate_separate_coherence_ts.m` script, you would run the
+`fused_lasso_coherence_changepoint.R` script.
