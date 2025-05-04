@@ -1,0 +1,30 @@
+-----------------------------------------------------------------------------------------------
+The 'average_chans_and_filter_LFP.m' script contains a function which, for each LFP file in
+the provided data directory, computes the average LFP signal across the channels considered
+"good" by the corresponding CHANS file for each brain region and then notch filters the
+averaged LFP signals at 60 Hz. The averaged and filtered LFP data files are then saved to
+the provided directory (see function documentation).
+
+Example code:
+>>> lfp_data_dir = "./LFP_data/";
+>>> chans_dir = "./CHANS/";
+>>> save_dir = "./averaged_and_filtered_LFP_data/";
+>>> fs = 1000;
+>>> average_chans_and_filter_LFP(lfp_data_dir, chans_dir, save_dir, fs);
+-----------------------------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------------------------
+The 'compute_coherence_for_averaged_LFP.m' script contains a function which computes the
+magnitude-squared coherence for each pair of brain regions at each time window for each LFP
+file in the provided directory (see function documentation). The LFP files used by this
+script should be those produced as the result of calling the 'average_chans_and_filter_LFP.m'
+script.
+
+>>> lfp_data_dir = "./averaged_and_filtered_LFP_data/";
+>>> save_dir = "./coherence_results/";
+>>> max_plot_freq = 50;
+>>> win_len = 1;
+>>> win_step = 1;
+>>> fs = 1000;
+>>> compute_coherence_for_averaged_LFP(lfp_data_dir, save_dir, max_plot_freq, win_len, win_step, fs);
+-----------------------------------------------------------------------------------------------
