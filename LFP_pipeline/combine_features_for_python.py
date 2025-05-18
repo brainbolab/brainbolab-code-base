@@ -9,6 +9,7 @@ import warnings
 
 data_dir = "./LFP_features";
 save_filename = "./LFP_py_features.pickle";
+labels = ["CGRP", "Treatment", "exp_phase"];
 
 if not os.path.isdir(data_dir):
   err_msg = "The provided directory:\n  " + data_dir + "\ndoes not exist.";
@@ -36,12 +37,15 @@ for fx in range(0, n_filenames):
   power_fx = features_fx["power"];
   fft_fx = features_fx["fft"];
   coherence_fx = features_fx["coherence"];
-  labels_fx = [labl_ix[0][0] for labl_ix in features_fx["labels"]];
+  labels_fx = pd.DataFrame({
+    labl_lx: [win_labl_wx[0][0] for win_labl_wx in features_fx[labl_lx]]
+    for labl_lx in labels});
+
   regions_fx = np.array([reg_ix[0][0] for reg_ix in features_fx["regions"]]);
   region_pairs_fx = np.array([reg_ix[0][0] for reg_ix in features_fx["region_pairs"]]);
   freq_fx = features_fx["freq"].flatten();
 
-  n_win_fx = len(labels_fx);
+  n_win_fx = labels_fx.shape[0];
   n_regions_fx = len(regions_fx);
   n_reg_pairs_fx = len(region_pairs_fx);
   n_freq_fx = len(freq_fx);
@@ -95,7 +99,6 @@ for fx in range(0, n_filenames):
       " does not equal the number of region labels. Skipping ...";
 
     warnings.warn(warn_msg);
-
     continue;
 
   if n_regions_fx != fft_fx.shape[1]:
@@ -105,7 +108,6 @@ for fx in range(0, n_filenames):
       " does not equal the number of region labels. Skipping ...";
 
     warnings.warn(warn_msg);
-
     continue;
 
   if n_reg_pairs_fx != coherence_fx.shape[1]:
@@ -115,7 +117,6 @@ for fx in range(0, n_filenames):
       " does not equal the number of region pair labels. Skipping ...";
 
     warnings.warn(warn_msg);
-
     continue;
 
   if n_win_fx != power_fx.shape[2]:
@@ -161,8 +162,9 @@ for fx in range(0, n_filenames):
   group_info_fx = pd.DataFrame({
     "ID": [mouse_fx] * n_win_fx,
     "date": [date_fx] * n_win_fx,
-    "label": labels_fx,
     "time": list(range(0, n_win_fx) )});
+
+  group_info_fx = pd.concat([group_info_fx, labels_fx], axis=1);
 
   if len(combined_features) == 0:
     combined_features["power"] = power_fx;
