@@ -2,13 +2,13 @@ function construct_features( ...
   lfp_data_dir, ...
   save_dir, ...
   times_and_labels_table_fname, ...
-  label, ...
+  labels, ...
   max_freq, ...
   win_len, ...
   fs)
 
 % Function call:
-%   construct_features(lfp_data_dir, save_dir, times_and_labels_table_fname, label, max_freq, win_len, fs);
+%   construct_features(lfp_data_dir, save_dir, times_and_labels_table_fname, labels, max_freq, win_len, fs);
 %
 % Description:
 %   X
@@ -21,7 +21,7 @@ function construct_features( ...
 %
 %   times_and_labels_table_fname: Filename of the CSV file containing the times and labels table. This table
 %                                 should at least have columns: 'ID', 'date', 'start_time', 'end_time' and the
-%                                 label contained in the provided 'label' variable. E.g.
+%                                 labels contained in the provided 'labels' variable. E.g.
 %
 %                                      ID   date Treatment Sex CGRP exp_phase start_time  end_time ...
 %                                   MV211 240517   CGRP_A1   M    0    phase1          1       600 ...
@@ -43,13 +43,12 @@ function construct_features( ...
 %                                   MV221 240621   CGRP_A1   F    1    phase2        831       988 ...
 %                                     ...    ...       ... ...            ...        ...       ... ...
 %
-%                          label: Name of the column in the times and labels table used to label all time
-%                                 windows within time segments indicated by the 'start_time' and 'end_time'
-%                                 columns. For example, if the 'label' variable is set to "CGRP", and the
-%                                 above table is provided as the times and labels table, all time windows
-%                                 for each mouse on each date that correspond to the phase2 experimental
-%                                 phase would be labeled with a 1, and all of the windows that correspond
-%                                 to phase2 would be labeled with a 0.
+%                         labels: Vector of columns in the times and labels table used to label all time windows
+%                                 within time segments indicated by the 'start_time' and 'end_time' columns.
+%                                 For example, if the 'labels' variable is set to [{'CGRP'}, {'exp_phase'}],
+%                                 and the above table is provided as the times and labels table, all time windows
+%                                 for each mouse on each date would have corresponding labels determined by the
+%                                 values in the "CGRP" and "exp_phase" columns.
 %
 %                       max_freq: Highest frequency (in Hz) of cross-power data to include.
 %
@@ -61,11 +60,11 @@ function construct_features( ...
 %   >>> lfp_data_dir = "./averaged_and_filtered_LFP_data/";
 %   >>> save_dir = "./features_results/";
 %   >>> times_and_labels_table_fname = "./times_and_labels_table.csv";
-%   >>> label = "CGRP";
+%   >>> labels = [{'CGRP'}, {'exp_phase'}];
 %   >>> max_freq = 50;
 %   >>> win_len = 1;
 %   >>> fs = 1000;
-%   >>> construct_features(lfp_data_dir, save_dir, times_and_labels_table_fname, label, max_freq, win_len, fs);
+%   >>> construct_features(lfp_data_dir, save_dir, times_and_labels_table_fname, labels, max_freq, win_len, fs);
 
   if isstring(max_freq) || ischar(max_freq)
     max_freq = str2num(max_freq);
@@ -91,7 +90,10 @@ function construct_features( ...
   lfp_data_dir = char(lfp_data_dir);
   save_dir = char(save_dir);
   times_and_labels_table_fname = char(times_and_labels_table_fname);
-  label = char(label);
+
+  if ischar(labels)
+    labels = [{labels}];
+  end
 
   file_sep = '/';
 
@@ -141,11 +143,11 @@ function construct_features( ...
 
   table_opts = detectImportOptions(times_and_labels_table_fname);
 
-  expected_colnames = [re_labels, {label}, {'start_time'}, {'end_time'}];
+  expected_colnames = [re_labels, labels, {'start_time'}, {'end_time'}];
   [~, ~, expected_ixs] = intersect(table_opts.VariableNames, expected_colnames);
 
   % Make sure that the provided table contains at least the variable names provided in the
-  % 're_labels' variable defined above and the 'label' variable passed to this function.
+  % 're_labels' variable defined above and the 'labels' variable passed to this function.
   if length(expected_ixs) ~= length(expected_colnames)
     problem_cols = expected_colnames(setdiff(1:length(expected_colnames), expected_ixs) );
     err_msg = [ ...
@@ -355,7 +357,7 @@ function construct_features( ...
     power_mx = nan([n_freq, n_regions_mx, n_win_mx]);
     fft_mx = nan([n_freq, n_regions_mx, n_win_mx]);
     coherence_mx = nan([n_freq, n_region_pairs_mx, n_win_mx]);
-    labels_mx = cell([n_win_mx, 1]);
+    labels_mx = array2table(cell([n_win_mx, numel(labels)]), 'VariableNames', labels);
 
     for px = 1:n_exp_phases_mx
       ix_time = times_and_labels_mx.start_time(px);
@@ -380,7 +382,9 @@ function construct_features( ...
           times_and_labels_mx.start_time(px), ...
           times_and_labels_mx.end_time(px) ));
 
-      labels_mx(ax_seg:bx_seg) = repelem(times_and_labels_mx.(label)(px), 1, n_win_mx_px);
+      for lx = 1:numel(labels)
+        labels_mx(ax_seg:bx_seg,labels{lx}) = repelem(times_and_labels_mx.(labels{lx})(px), n_win_mx_px, 1);
+      end
 
       % At each window, compute the fft, power and coherence for each brain region and each pair
       % of brain regions.
@@ -434,12 +438,16 @@ function construct_features( ...
     save_struct.regions = lfp_regions_mx;
     save_struct.coherence = coherence_mx;
     save_struct.region_pairs = region_pairs_mx;
-    save_struct.labels = labels_mx;
     save_struct.freq = freq;
     save_struct.n_win = n_win_mx;
     save_struct.fs = fs;
     save_struct.win_len = win_len;
     save_struct.group_ID = mouse_group_mx;
+
+    for lx = 1:length(labels)
+      save_struct.(labels{lx}) = labels_mx.(labels{lx});
+    end
+
     save_struct.times_and_labels_table = times_and_labels_mx;
 
     save_filename = [save_dir, 'Mouse', mouse_group_mx, '_features.mat'];
